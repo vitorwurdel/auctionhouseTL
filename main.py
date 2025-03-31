@@ -78,7 +78,7 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
     await leilao_channel.send(embed=embed)
     await interaction.response.send_message(f'Leilão iniciado para **{item}**! Duração: {duracao} horas. O canal do leilão foi criado em {leilao_channel.mention}. Dê lances com /darlance <valor>.')
     
-    await asyncio.sleep(duracao * 3600)
+    await asyncio.sleep(duracao)
     if leiloes[leilao_channel.id]['vencedor']:
         await leilao_channel.send(f'Leilão encerrado! **{leiloes[leilao_channel.id]["vencedor"]}** venceu com um lance de **{leiloes[leilao_channel.id]["maior_lance"]}** moedas!')
     else:
@@ -96,25 +96,27 @@ async def darlance(interaction: discord.Interaction, valor: int):
     if interaction.channel_id not in leiloes:
         await interaction.response.send_message('Não há leilão ativo neste canal.', ephemeral=True)
         return
-    
-    if interaction.user.id in usuarios_no_leilao and usuarios_no_leilao[interaction.user.id] != interaction.channel_id:
-        await interaction.response.send_message('Você já deu um lance em outro leilão! Não pode dar lance em mais de um.', ephemeral=True)
-        return
-    
+
+    if interaction.user.id in usuarios_no_leilao:
+        leilao_id_atual = usuarios_no_leilao[interaction.user.id]
+        if leilao_id_atual != interaction.channel_id:
+            # Verifica se o lance do usuário já foi superado no outro leilão
+            if leiloes[leilao_id_atual]['vencedor'] != interaction.user.mention:
+                del usuarios_no_leilao[interaction.user.id]  # Libera o usuário
+            else:
+                await interaction.response.send_message('Você já deu um lance em outro leilão e ainda é o maior lance! Aguarde para participar de outro.', ephemeral=True)
+                return
+
     if valor <= leiloes[interaction.channel_id]['maior_lance']:
         await interaction.response.send_message('Seu lance deve ser maior que o lance atual!', ephemeral=True)
         return
-    
-    # Liberar o usuário caso tenha sido superado em outro leilão
-    for leilao_id, leilao in leiloes.items():
-        if leilao['vencedor'] == interaction.user.mention and leilao_id != interaction.channel_id:
-            del usuarios_no_leilao[interaction.user.id]
-    
+
     leiloes[interaction.channel_id]['maior_lance'] = valor
     leiloes[interaction.channel_id]['vencedor'] = interaction.user.mention
     usuarios_no_leilao[interaction.user.id] = interaction.channel_id
-    
+
     await interaction.response.send_message(f'Novo maior lance: **{valor}** moedas por {interaction.user.mention}!')
+
 
 @bot.tree.command(name='leiloes', description='Lista os leilões ativos')
 async def leiloes_comando(interaction: discord.Interaction):
