@@ -83,8 +83,7 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
     embed_comando = discord.Embed(
         title=f"Leilão iniciado para {item.title()}!",
         description=f"O leilão de **{item}** foi iniciado no canal {leilao_channel.mention}.\n\n"
-                    f"**Duração**: {duracao} horas\n"
-                    f"**Imagem**: {imagem.url}",
+                    f"**Duração**: {duracao} horas\n",
         color=discord.Color.green()
     )
     embed_comando.set_image(url=imagem.url)
@@ -118,6 +117,10 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
 async def darlance(interaction: discord.Interaction, valor: int):
     if interaction.channel_id not in leiloes:
         await interaction.response.send_message('Não há leilão ativo neste canal.', ephemeral=True)
+        return
+    
+    if valor < 10:
+        await interaction.response.send_message('O valor do lance deve ser maior ou igual a 10.', ephemeral=True)
         return
 
     if interaction.user.id in usuarios_no_leilao:
