@@ -79,7 +79,16 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
     embed.set_image(url=imagem.url)
     
     await leilao_channel.send(embed=embed)
-    await interaction.response.send_message(f'Leilão iniciado para **{item}**! Duração: {duracao} horas. O canal do leilão foi criado em {leilao_channel.mention}. Dê lances com /darlance <valor>.')
+
+    embed_comando = discord.Embed(
+        title=f"Leilão iniciado para {item.title()}!",
+        description=f"O leilão de **{item}** foi iniciado no canal {leilao_channel.mention}.\n\n"
+                    f"**Duração**: {duracao} horas\n"
+                    f"**Imagem**: {imagem.url}",
+        color=discord.Color.green()
+    )
+    embed_comando.set_image(url=imagem.url)
+    await interaction.response.send_message(embed=embed_comando)
     
     await asyncio.sleep(duracao * 3600)
     if leiloes[leilao_channel.id]['vencedor']:
@@ -148,7 +157,7 @@ async def darlance(interaction: discord.Interaction, valor: int):
     leilao_channel = bot.get_channel(interaction.channel_id)
     await leilao_channel.send(embed=embed)
 
-    await interaction.response.send_message(f'Novo maior lance de **{valor}** pontos! O tempo restante foi estendido. Confira o embed no canal do leilão.')
+    await interaction.response.send_message(f'Novo maior lance de **{valor}** pontos! O tempo restante foi estendido.')
 
 @bot.tree.command(name='leiloes', description='Lista os leilões ativos')
 async def leiloes_comando(interaction: discord.Interaction):
