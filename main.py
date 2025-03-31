@@ -1,7 +1,8 @@
 import discord
 from discord.ext import commands
 import asyncio
-import os 
+import os
+from datetime import datetime, timedelta 
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
@@ -59,12 +60,14 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
     
     leilao_channel = await guild.create_text_channel(canal_nome, category=category)
     
+    fim_leilao = datetime.utcnow() + timedelta(hours=duracao)
+
     leiloes[leilao_channel.id] = {
         'item': item,
         'maior_lance': 0,
         'vencedor': None,
         'imagem': imagem.url,
-        'duracao': duracao
+        'fim': fim_leilao
     }
     
     embed = discord.Embed(
@@ -86,7 +89,7 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
         )
         embed.add_field(name='Vencedor', value=leiloes[leilao_channel.id]['vencedor'], inline=False)
         embed.add_field(name='Item Arrematado', value=leiloes[leilao_channel.id]['item'], inline=False)
-        embed.add_field(name='Valor Final', value=f"{leiloes[leilao_channel.id]['maior_lance']} moedas", inline=False)
+        embed.add_field(name='Maior Lance', value=f"{leiloes[leilao_channel.id]['maior_lance']} pontos", inline=False)
         
         imagem_path = 'images/VENDIDO.jpg'  # Caminho correto da imagem dentro do projeto
         file = discord.File(imagem_path, filename='VENDIDO.jpg')
@@ -127,7 +130,7 @@ async def darlance(interaction: discord.Interaction, valor: int):
     leiloes[interaction.channel_id]['vencedor'] = interaction.user.mention
     usuarios_no_leilao[interaction.user.id] = interaction.channel_id
 
-    await interaction.response.send_message(f'Novo maior lance: **{valor}** moedas por {interaction.user.mention}!')
+    await interaction.response.send_message(f'Novo maior lance: **{valor}** pontos por {interaction.user.mention}!')
 
 
 @bot.tree.command(name='leiloes', description='Lista os leilões ativos')
@@ -136,47 +139,24 @@ async def leiloes_comando(interaction: discord.Interaction):
         await interaction.response.send_message('Não há leilões ativos no momento.', ephemeral=True)
         return
     
+    agora = datetime.utcnow()
     embeds = []
     for channel_id, leilao in leiloes.items():
-        canal = bot.get_channel(channel_id)
+        tempo_restante = leilao['fim'] - agora
+        horas, segundos = divmod(int(tempo_restante.total_seconds()), 3600)
+        minutos = segundos // 60
+        tempo_formatado = f"{horas}h {minutos}m" if horas > 0 else f"{minutos}m"
+        
         embed = discord.Embed(
             title=f"Leilão do item {leilao['item'].title()}",
             color=discord.Color.gold()
         )
-        embed.add_field(name="Canal do Leilão", value=f"{canal.mention}", inline=False)
-        embed.add_field(name="Item leiloado", value=f"**{leilao['item']}**", inline=False)
         embed.add_field(name="Maior lance", value=f"**{leilao['maior_lance']}** por {leilao['vencedor'] or 'Ninguém'}", inline=True)
-        
-        if 'imagem' in leilao:
-            embed.set_image(url=leilao['imagem'])
+        embed.add_field(name="Tempo restante", value=f"{tempo_formatado}", inline=False)
+        embed.set_image(url=leilao['imagem'])
         
         embeds.append(embed)
     
     await interaction.response.send_message(embeds=embeds)
-
-async def encerrar_leilao(leilao_channel):
-    if leiloes[leilao_channel.id]['vencedor']:
-        embed = discord.Embed(
-            title='Leilão Encerrado!',
-            color=discord.Color.red()
-        )
-        embed.add_field(name='Vencedor', value=leiloes[leilao_channel.id]['vencedor'], inline=False)
-        embed.add_field(name='Item Arrematado', value=leiloes[leilao_channel.id]['item'], inline=False)
-        embed.add_field(name='Valor Final', value=f"{leiloes[leilao_channel.id]['maior_lance']} moedas", inline=False)
-        
-        imagem_path = 'images/VENDIDO.jpg'  # Caminho correto da imagem dentro do projeto
-        file = discord.File(imagem_path, filename='VENDIDO.jpg')
-        embed.set_image(url=f"attachment://VENDIDO.jpg")
-        
-        await leilao_channel.send(embed=embed, file=file)
-    else:
-        await leilao_channel.send('Leilão encerrado sem lances.')
-    
-    # Remover usuários que participaram do leilão do bloqueio para dar lances em outros
-    for user_id in list(usuarios_no_leilao.keys()):
-        if usuarios_no_leilao[user_id] == leilao_channel.id:
-            del usuarios_no_leilao[user_id]
-    
-    del leiloes[leilao_channel.id]
 
 bot.run(TOKEN)
