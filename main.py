@@ -15,6 +15,19 @@ leiloes = {}
 usuarios_no_leilao = {}
 guild = discord.Object(id=GUILD_ID)
 
+# Dicionário com as versões estilizadas das letras
+unicode_fonts = {
+    'A': '𝔸', 'B': '𝔹', 'C': 'ℂ', 'D': '𝔻', 'E': '𝔼', 'F': '𝔽', 'G': '𝔾', 'H': 'ℍ', 'I': '𝕀', 'J': '𝕁', 'K': '𝕂', 'L': '𝕃',
+    'M': '𝕄', 'N': '𝕆', 'O': '𝕆', 'P': 'ℙ', 'Q': 'ℚ', 'R': 'ℝ', 'S': '𝕊', 'T': '𝕋', 'U': '𝕌', 'V': '𝕍', 'W': '𝕎', 'X': '𝕏',
+    'Y': '𝕐', 'Z': 'ℤ', 'a': '𝕒', 'b': '𝕓', 'c': '𝕔', 'd': '𝕕', 'e': '𝕖', 'f': '𝕗', 'g': '𝕘', 'h': '𝕙', 'i': '𝕚', 'j': '𝕛',
+    'k': '𝕜', 'l': '𝕝', 'm': '𝕞', 'n': '𝕟', 'o': '𝕠', 'p': '𝕡', 'q': '𝕢', 'r': '𝕣', 's': '𝕤', 't': '𝕥', 'u': '𝕦', 'v': '𝕧',
+    'w': '𝕨', 'x': '𝕩', 'y': '𝕪', 'z': '𝕫', '0': '𝟎', '1': '𝟏', '2': '𝟐', '3': '𝟑', '4': '𝟒', '5': '𝟓', '6': '𝟔', '7': '𝟕',
+    '8': '𝟖', '9': '𝟗', ' ': ' '
+}
+
+def to_unicode_font(text):
+    return ''.join([unicode_fonts.get(char, char) for char in text])
+
 @bot.event
 async def on_ready():
     print(f'Bot conectado como {bot.user}')
@@ -31,13 +44,15 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
         await interaction.response.send_message('Já existe um leilão em andamento neste canal!', ephemeral=True)
         return
     
+    canal_nome = to_unicode_font(item)
+
     guild = interaction.guild
     category = discord.utils.get(guild.categories, name="═════❯𝐋𝐄𝐈𝐋𝐀̃𝐎 𝐃𝐄 𝐈𝐓𝐄𝐍𝐒❮═════")
-    
+
     if not category:
         category = await guild.create_category("Leilões")
     
-    leilao_channel = await guild.create_text_channel(item, category=category)
+    leilao_channel = await guild.create_text_channel(canal_nome, category=category)
     
     leiloes[leilao_channel.id] = {
         'item': item,
