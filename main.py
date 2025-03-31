@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import asyncio
 import os
-from datetime import datetime, timedelta 
+from datetime import datetime, timezone, timedelta
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
@@ -59,8 +59,8 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
         category = await guild.create_category("Leilões")
     
     leilao_channel = await guild.create_text_channel(canal_nome, category=category)
-    
-    fim_leilao = datetime.utcnow() + timedelta(hours=duracao)
+
+    fim_leilao = datetime.now(timezone.utc) + timedelta(hours=duracao)
 
     leiloes[leilao_channel.id] = {
         'item': item,
@@ -81,7 +81,7 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
     await leilao_channel.send(embed=embed)
     await interaction.response.send_message(f'Leilão iniciado para **{item}**! Duração: {duracao} horas. O canal do leilão foi criado em {leilao_channel.mention}. Dê lances com /darlance <valor>.')
     
-    await asyncio.sleep(duracao)
+    await asyncio.sleep(duracao * 3600)
     if leiloes[leilao_channel.id]['vencedor']:
         embed = discord.Embed(
             title='Leilão Encerrado!',
@@ -91,7 +91,7 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
         embed.add_field(name='Item Arrematado', value=leiloes[leilao_channel.id]['item'], inline=False)
         embed.add_field(name='Maior Lance', value=f"{leiloes[leilao_channel.id]['maior_lance']} pontos", inline=False)
         
-        imagem_path = 'images/VENDIDO.jpg'  # Caminho correto da imagem dentro do projeto
+        imagem_path = 'images/VENDIDO.jpg'
         file = discord.File(imagem_path, filename='VENDIDO.jpg')
         embed.set_image(url=f"attachment://VENDIDO.jpg")
         
@@ -99,7 +99,6 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
     else:
         await leilao_channel.send('Leilão encerrado sem lances.')
     
-    # Remover usuários que participaram do leilão do bloqueio para dar lances em outros
     for user_id in list(usuarios_no_leilao.keys()):
         if usuarios_no_leilao[user_id] == leilao_channel.id:
             del usuarios_no_leilao[user_id]
@@ -115,9 +114,8 @@ async def darlance(interaction: discord.Interaction, valor: int):
     if interaction.user.id in usuarios_no_leilao:
         leilao_id_atual = usuarios_no_leilao[interaction.user.id]
         if leilao_id_atual != interaction.channel_id:
-            # Verifica se o lance do usuário já foi superado no outro leilão
             if leiloes[leilao_id_atual]['vencedor'] != interaction.user.mention:
-                del usuarios_no_leilao[interaction.user.id]  # Libera o usuário
+                del usuarios_no_leilao[interaction.user.id]
             else:
                 await interaction.response.send_message('Você já deu um lance em outro leilão e ainda é o maior lance! Aguarde para participar de outro.', ephemeral=True)
                 return
@@ -130,8 +128,27 @@ async def darlance(interaction: discord.Interaction, valor: int):
     leiloes[interaction.channel_id]['vencedor'] = interaction.user.mention
     usuarios_no_leilao[interaction.user.id] = interaction.channel_id
 
-    await interaction.response.send_message(f'Novo maior lance: **{valor}** pontos por {interaction.user.mention}!')
+    leiloes[interaction.channel_id]['fim'] += timedelta(minutes=1)
 
+    agora = datetime.now(timezone.utc)
+    tempo_restante = leiloes[interaction.channel_id]['fim'] - agora
+    horas, segundos = divmod(int(tempo_restante.total_seconds()), 3600)
+    minutos = segundos // 60
+    tempo_formatado = f"{horas}h {minutos}m" if horas > 0 else f"{minutos}m"
+
+    embed = discord.Embed(
+        title=f"Lance dado no leilão do item {leiloes[interaction.channel_id]['item']}",
+        color=discord.Color.green()
+    )
+    embed.add_field(name="Valor do lance", value=f"{valor} pontos", inline=False)
+    embed.add_field(name="Novo maior lance", value=f"{interaction.user.mention}", inline=False)
+    embed.add_field(name="Tempo restante", value=tempo_formatado, inline=False)
+    embed.set_image(url=leiloes[interaction.channel_id]['imagem'])
+
+    leilao_channel = bot.get_channel(interaction.channel_id)
+    await leilao_channel.send(embed=embed)
+
+    await interaction.response.send_message(f'Novo maior lance de **{valor}** pontos! O tempo restante foi estendido. Confira o embed no canal do leilão.')
 
 @bot.tree.command(name='leiloes', description='Lista os leilões ativos')
 async def leiloes_comando(interaction: discord.Interaction):
@@ -139,7 +156,7 @@ async def leiloes_comando(interaction: discord.Interaction):
         await interaction.response.send_message('Não há leilões ativos no momento.', ephemeral=True)
         return
     
-    agora = datetime.utcnow()
+    agora = datetime.now(timezone.utc)
     embeds = []
     for channel_id, leilao in leiloes.items():
         tempo_restante = leilao['fim'] - agora
