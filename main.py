@@ -15,6 +15,24 @@ leiloes = {}
 usuarios_no_leilao = {}
 guild = discord.Object(id=GUILD_ID)
 
+unicode_fonts = {
+    'A': '𝔸', 'B': '𝔹', 'C': 'ℂ', 'D': '𝔻', 'E': '𝔼', 'F': '𝔽', 'G': '𝔾', 'H': 'ℍ', 'I': '𝕀', 'J': '𝕁', 'K': '𝕂', 'L': '𝕃',
+    'M': '𝕄', 'N': 'ℕ', 'O': '𝕆', 'P': 'ℙ', 'Q': 'ℚ', 'R': 'ℝ', 'S': '𝕊', 'T': '𝕋', 'U': '𝕌', 'V': '𝕍', 'W': '𝕎', 'X': '𝕏',
+    'Y': '𝕐', 'Z': 'ℤ',
+    
+    'a': '𝕒', 'b': '𝕓', 'c': '𝕔', 'd': '𝕕', 'e': '𝕖', 'f': '𝕗', 'g': '𝕘', 'h': '𝕙', 'i': '𝕚', 'j': '𝕛', 'k': '𝕜', 'l': '𝕝',
+    'm': '𝕞', 'n': '𝕟', 'o': '𝕠', 'p': '𝕡', 'q': '𝕢', 'r': '𝕣', 's': '𝕤', 't': '𝕥', 'u': '𝕦', 'v': '𝕧', 'w': '𝕨', 'x': '𝕩',
+    'y': '𝕪', 'z': '𝕫',
+    
+    'á': '𝕒́', 'é': '𝕖́', 'í': '𝕚́', 'ó': '𝕠́', 'ú': '𝕦́', 'ã': '𝕒̃', 'õ': '𝕠̃', 'à': '𝕒̀', 'è': '𝕖̀', 'ì': '𝕚̀', 'ò': '𝕠̀', 
+    'ù': '𝕦̀', 'â': '𝕒̂', 'ê': '𝕖̂', 'î': '𝕚̂', 'ô': '𝕠̂', 'û': '𝕦̂', 'ä': '𝕒̈', 'ë': '𝕖̈', 'ï': '𝕚̈', 'ö': '𝕠̈', 'ü': '𝕦̈', 
+    'ç': '𝕔̧', 'Ç': 'ℂ̧', 'á': '𝕒́', 'Á': '𝔸́', 'é': '𝕖́', 'É': '𝔼́', 'í': '𝕚́', 'Í': '𝕀́', 'ó': '𝕠́', 'Ó': '𝕆́', 'ú': '𝕦́', 
+    'Ú': '𝕌́'
+}
+
+def to_unicode_font(text):
+    return ''.join([unicode_fonts.get(char, char) for char in text])
+
 @bot.event
 async def on_ready():
     print(f'Bot conectado como {bot.user}')
@@ -31,21 +49,22 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
         await interaction.response.send_message('Já existe um leilão em andamento neste canal!', ephemeral=True)
         return
     
+    canal_nome = to_unicode_font(item)
+
     guild = interaction.guild
-    category = discord.utils.get(guild.categories, name="Leilões")
-    
+    category = discord.utils.get(guild.categories, name="═════❯𝐋𝐄𝐈𝐋𝐀̃𝐎 𝐃𝐄 𝐈𝐓𝐄𝐍𝐒❮═════")
+
     if not category:
         category = await guild.create_category("Leilões")
     
-    leilao_channel = await guild.create_text_channel(item, category=category)
+    leilao_channel = await guild.create_text_channel(canal_nome, category=category)
     
     leiloes[leilao_channel.id] = {
         'item': item,
         'maior_lance': 0,
         'vencedor': None,
         'imagem': imagem.url,
-        'duracao': duracao,
-        'participantes': set()
+        'duracao': duracao
     }
     
     embed = discord.Embed(
@@ -53,7 +72,7 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
         color=discord.Color.gold()
     )
     embed.add_field(name="Duração do leilão", value=f"{duracao} horas", inline=False)
-    embed.add_field(name="Como dar o seu lance", value="Dê o seu lance com o comando /darlance", inline=True)
+    embed.add_field(name="Como dar o seu lance", value="De o seu lance com o comando /darlance", inline=True)
     embed.set_image(url=imagem.url)
     
     await leilao_channel.send(embed=embed)
@@ -65,8 +84,9 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: int,
     else:
         await leilao_channel.send('Leilão encerrado sem lances.')
     
-    for user_id in leiloes[leilao_channel.id]['participantes']:
-        if usuarios_no_leilao.get(user_id) == leilao_channel.id:
+    # Remover usuários que participaram do leilão do bloqueio para dar lances em outros
+    for user_id in list(usuarios_no_leilao.keys()):
+        if usuarios_no_leilao[user_id] == leilao_channel.id:
             del usuarios_no_leilao[user_id]
     
     del leiloes[leilao_channel.id]
@@ -85,14 +105,13 @@ async def darlance(interaction: discord.Interaction, valor: int):
         await interaction.response.send_message('Seu lance deve ser maior que o lance atual!', ephemeral=True)
         return
     
-    leilao = leiloes[interaction.channel_id]
+    # Liberar o usuário caso tenha sido superado em outro leilão
+    for leilao_id, leilao in leiloes.items():
+        if leilao['vencedor'] == interaction.user.mention and leilao_id != interaction.channel_id:
+            del usuarios_no_leilao[interaction.user.id]
     
-    if leilao['vencedor'] and interaction.user.id in usuarios_no_leilao:
-        del usuarios_no_leilao[interaction.user.id]
-    
-    leilao['maior_lance'] = valor
-    leilao['vencedor'] = interaction.user.mention
-    leilao['participantes'].add(interaction.user.id)
+    leiloes[interaction.channel_id]['maior_lance'] = valor
+    leiloes[interaction.channel_id]['vencedor'] = interaction.user.mention
     usuarios_no_leilao[interaction.user.id] = interaction.channel_id
     
     await interaction.response.send_message(f'Novo maior lance: **{valor}** moedas por {interaction.user.mention}!')
