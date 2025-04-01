@@ -45,7 +45,7 @@ async def on_ready():
         print(f'Erro ao sincronizar comandos: {e}')
 
 @bot.tree.command(name='criarleilao', description='Cria um novo leilão')
-async def criarleilao(interaction: discord.Interaction, item: str, duracao: int, imagem: discord.Attachment):
+async def criarleilao(interaction: discord.Interaction, item: str, duracao: float, imagem: discord.Attachment):
     if interaction.channel_id in leiloes:
         await interaction.response.send_message('Já existe um leilão em andamento neste canal!', ephemeral=True)
         return
