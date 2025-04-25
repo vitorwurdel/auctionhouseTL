@@ -53,7 +53,7 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: floa
     canal_nome = to_unicode_font(item)
 
     guild = interaction.guild
-    category = discord.utils.get(guild.categories, name="═════❯𝐋𝐄𝐈𝐋𝐀̃𝐎 𝐃𝐄 𝐈𝐓𝐄𝐍𝐒❮═════")
+    category = discord.utils.get(guild.categories, name="=========>LEILÃO DE ITENS<===========")
 
     if not category:
         category = await guild.create_category("Leilões")
