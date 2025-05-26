@@ -89,7 +89,16 @@ async def criarleilao(interaction: discord.Interaction, item: str, duracao: floa
     embed_comando.set_image(url=imagem.url)
     await interaction.response.send_message(embed=embed_comando)
     
-    await asyncio.sleep(leiloes[interaction.channel_id]['fim'])
+    while True:
+        agora = datetime.now(timezone.utc)
+        fim = leiloes[leilao_channel.id]['fim']
+        segundos_restantes = (fim - agora).total_seconds()
+
+        if segundos_restantes <= 0:
+            break
+
+        await asyncio.sleep(min(10, segundos_restantes))
+        
     if leiloes[leilao_channel.id]['vencedor']:
         embed = discord.Embed(
             title='Leilão Encerrado!',
